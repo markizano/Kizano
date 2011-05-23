@@ -77,5 +77,15 @@ class Kizano_Filter_Html implements Zend_Filter_Interface
 
         return $this;
     }
+
+	/**
+	 *  Performs the filtering.
+	 *  
+	 *  @param String	$value		The value to HTMLize.
+	 *  
+	 *  @return String The filtered string.
+	 */
+	public function filter($value)
+	{}
 }
 
