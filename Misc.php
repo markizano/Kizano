@@ -159,6 +159,8 @@ class Kizano_Misc
 			foreach ($backtrace as $back) {
 				isset($back['class']) || $back['class'] = 'Static';
 				isset($back['type']) || $back['type'] = '::';
+				isset($back['file']) || $back['file'] = 'php://magic';
+				isset($back['line']) || $back['line'] = '00';
 				$result .= "&lt;<span style='color:#CC0000;'>$back[file]</span>:$back[line]&gt;&nbsp;".
 					"<span style='color:#0000AA;'>$back[class]</span>$back[type]".
 					"<span style='color:#0000AA;'>$back[function]</span>("
