@@ -46,8 +46,10 @@ class Kizano_Misc
 		$result = null;
 		if (count($backtrace))
 			foreach ($backtrace as $back) {
-				isset($back['class']) || $back['class'] = 'Static';
+				isset($back['class']) || $back['class'] = '(php)';
 				isset($back['type']) || $back['type'] = '::';
+				isset($back['file']) || $back['file'] = 'php://';
+				isset($back['line']) || $back['line'] = '00';
 				$result .= "<$back[file]:$back[line]> ".
 					"$back[class]$back[type]".
 					"$back[function]("
@@ -102,8 +104,10 @@ class Kizano_Misc
 		$result = null;
 		if (count($backtrace))
 			foreach ($backtrace as $back) {
-				isset($back['class']) || $back['class'] = 'Static';
+				isset($back['class']) || $back['class'] = '(php)';
 				isset($back['type']) || $back['type'] = '::';
+				isset($back['file']) || $back['file'] = 'php://';
+				isset($back['line']) || $back['line'] = '00';
 				$result .= "<\033[31m$back[file]\033[00m:\033[01;30m$back[line]\033[00;00m> ".
 					"\033[34m$back[class]\033[00m$back[type]".
 					"\033[34m$back[function]\033[00m("
@@ -157,7 +161,7 @@ class Kizano_Misc
 		$result = null;
 		if (count($backtrace))
 			foreach ($backtrace as $back) {
-				isset($back['class']) || $back['class'] = 'Static';
+				isset($back['class']) || $back['class'] = '(php)';
 				isset($back['type']) || $back['type'] = '::';
 				isset($back['file']) || $back['file'] = 'php://magic';
 				isset($back['line']) || $back['line'] = '00';
