@@ -236,4 +236,24 @@ class Kizano_Misc
 		}
 		return $debug;
 	}
+
+	/**
+	 *  Generates an easily read var_dump of the provided exception.
+	 *
+	 *  @param Exception $e     The exception to print.
+	 *
+	 *  @return String
+	 */
+    public static function htmlException(Exception $e)
+    {
+        return sprintf(
+            "Message (<span style='color:#0000AA;'>%d</span>): <span style='font-weight:bold;'>%s</span><br />\n" .
+            "Location: &lt;<span style='color:#AA0000;'>%s</span>:%d&gt;<br />\n" .
+            "Trace: <br />\n%s<br />\n" .
+            "Previous: %s<br />\n",
+            $e->getCode(), $e->getMessage(), $e->getFile(), $e->getLine(),
+            self::htmlBacktrace($e->getTrace()),
+            is_null($e->getPrevious())? '&lt;N/A&gt;': self::htmlException($e->getPrevious())
+        );
+    }
 }
