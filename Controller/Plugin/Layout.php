@@ -109,13 +109,16 @@ class Kizano_Controller_Plugin_Layout extends Zend_Controller_Plugin_Abstract
 	 */
 	public function preDispatch(Zend_Controller_Request_Abstract $request)
 	{
-		$layout = Zend_Registry::get('layout');
+		$layout = Zend_Layout::getMvcInstance();
 
+        # TODO: Make this configurable.
+/*
 		if ($request->getModuleName() == 'admin') {
 			$layout->setLayoutPath(DIR_APPLICATION . 'layouts/scripts/admin');
 		} else {
 			$layout->setLayoutPath(DIR_APPLICATION . 'layouts/scripts/site');
 		}
+//*/
 	}
 
 	/**

@@ -52,8 +52,12 @@ class Kizano_Controller_Action extends Zend_Controller_Action
      */
     public function init()
     {
-        $this->_session = Zend_Registry::get('session');
-        $this->_cache   = Zend_Registry::get('cachemanager');
+        if (Zend_Registry::isRegistered('session')) {
+            $this->_session = Zend_Registry::get('session');
+        }
+        if (Zend_Registry::isRegistered('cachemanager')) {
+            $this->_cache   = Zend_Registry::get('cachemanager');
+        }
         if ($this->_request->isXmlHttpRequest()) {
             $this->_reply = Kizano_Ajax_Reply::factory();
         }
