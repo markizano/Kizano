@@ -279,5 +279,17 @@ class Kizano_Misc
             is_null($e->getPrevious())? '<N/A>': self::htmlException($e->getPrevious())
         ));
     }
+
+    /**
+     *  Gets a more easily read var_dump() while `html_errors` is off by stripping excess whitespace.
+     *  
+     *  @return String
+     */
+    public static function varDump()
+    {
+        ob_start();
+        var_dump(func_get_args());
+        return preg_replace(array('#=>\s+(\w)#'), array('=> \1'), ob_get_clean());
+    }
 }
 
