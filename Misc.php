@@ -223,16 +223,18 @@ class Kizano_Misc
 		array_shift($debug);
 		foreach ($debug as $i => $deb) {
 			unset($debug[$i]['object']);
-			foreach ($deb['args'] as $k => $d) {
-				is_object($d) && $debug[$i]['args'][$k] = "({$prefix}object{$suffix})".get_class($d);
-				if (is_array($d)) {
-				    $debug[$i]['args'][$k] = "({$prefix}array{$prefix})\n[\n\t";
-				    foreach ($d as $key => $val) {
-    				    $args[] = sprintf("\t$key => ({$prefix}%s{$suffix}) %s", getType($val), is_string($val)? $val: null);
-				    }
-				    $debug[$i]['args'][$k] .= join(",\n", $args)."\n]";
+			if (isset($debug['args']) && is_array($debug['args'])) {
+			    foreach ($debug['args'] as $k => $d) {
+				    is_object($d) && $debug[$i]['args'][$k] = "({$prefix}object{$suffix})".get_class($d);
+				    if (is_array($d)) {
+				        $debug[$i]['args'][$k] = "({$prefix}array{$prefix})\n[\n\t";
+				        foreach ($d as $key => $val) {
+        				    $args[] = sprintf("\t$key => ({$prefix}%s{$suffix}) %s", getType($val), is_string($val)? $val: null);
+				        }
+				        $debug[$i]['args'][$k] .= join(",\n", $args)."\n]";
+			        }
 			    }
-			}
+		    }
 		}
 		return $debug;
 	}
