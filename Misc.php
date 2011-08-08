@@ -247,13 +247,35 @@ class Kizano_Misc
     public static function htmlException(Exception $e)
     {
         return sprintf(
+            "Type: %s<br />\n" .
             "Message (<span style='color:#0000AA;'>%d</span>): <span style='font-weight:bold;'>%s</span><br />\n" .
             "Location: &lt;<span style='color:#AA0000;'>%s</span>:%d&gt;<br />\n" .
             "Trace: <br />\n%s<br />\n" .
             "Previous: %s<br />\n",
-            $e->getCode(), $e->getMessage(), $e->getFile(), $e->getLine(),
+            get_class($e), $e->getCode(), $e->getMessage(), $e->getFile(), $e->getLine(),
             self::htmlBacktrace($e->getTrace()),
             is_null($e->getPrevious())? '&lt;N/A&gt;': self::htmlException($e->getPrevious())
         );
     }
+
+	/**
+	 * Generates an easily read var_dump of the provided exception in text format.
+	 *
+	 * @param Exception $e  The exception to format.
+	 *
+	 * @return String
+	 */
+    public static function textException(Exception $e)
+    {
+        return str_replace(array("\r\n", "\r"), "\n", sprintf(
+            "Message (%d): %s\n" .
+            "Location: <%s:%d>\n" .
+            "Trace: \n%s\n" .
+            "Previous: %s\n",
+            $e->getCode(), $e->getMessage(), $e->getFile(), $e->getLine(),
+            self::textBacktrace($e->getTrace()),
+            is_null($e->getPrevious())? '<N/A>': self::htmlException($e->getPrevious())
+        ));
+    }
 }
+
