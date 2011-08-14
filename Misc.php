@@ -5,7 +5,7 @@
  * PHP version 5
  *
  * Namespace placeholder for functions that would normally be free-floating.
- * Copyright (C) 2010 Markizano Draconus <markizano@markizano.net>
+ *  @copyright  Copyright (c) 2011 W3Evolutions <http://www.w3evolutions.com>
  *
  * This class is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,14 +22,14 @@
  *
  * @category  Kizano
  * @package   Miscelaneous
- * @author    Markizano Draconus <markizano@markizano.net>
+ * @author    Markizano Draconus <markizano at markizano dot net>
  * @license   http://www.gnu.org/licenses/gpl.html GNU Public License
- * @link      https://github.com/markizano/markizano/blob/master/includes/library/Kizano/Misc.php
+ * @link      https://github.com/markizano/Kizano/blob/master/Misc.php
  */
 
 /**
  *	Namespace for miscelaneous functions that would normally be free-floating.
- *  @author Markizano Draconus <markizano@markizano.net>
+ *  @author Markizano Draconus <markizano at markizano dot net>
  */
 class Kizano_Misc
 {
@@ -46,9 +46,9 @@ class Kizano_Misc
 		$result = null;
 		if (count($backtrace))
 			foreach ($backtrace as $back) {
-				isset($back['class']) || $back['class'] = '(php)';
+				isset($back['class']) || $back['class'] = 'Static';
 				isset($back['type']) || $back['type'] = '::';
-				isset($back['file']) || $back['file'] = 'php://';
+				isset($back['file']) || $back['file'] = 'php://magic';
 				isset($back['line']) || $back['line'] = '00';
 				$result .= "<$back[file]:$back[line]> ".
 					"$back[class]$back[type]".
@@ -65,7 +65,11 @@ class Kizano_Misc
 							$type = gettype($args);
 							$result .= "($type) $args";
 						} elseif (is_array($args)) {
-						    $args = print_r($args, true);
+							$args = preg_replace(
+							    array('/(\w+)\s+\(/', '/[\r\n]/'),
+							    array('\1 (', "\n"),
+							    print_r($args, true)
+						    );
 							$result .= "(array) $args";
 						} elseif (is_object($args)) {
 							$type = gettype($args);
@@ -104,9 +108,9 @@ class Kizano_Misc
 		$result = null;
 		if (count($backtrace))
 			foreach ($backtrace as $back) {
-				isset($back['class']) || $back['class'] = '(php)';
+				isset($back['class']) || $back['class'] = 'Static';
 				isset($back['type']) || $back['type'] = '::';
-				isset($back['file']) || $back['file'] = 'php://';
+				isset($back['file']) || $back['file'] = 'php://magic';
 				isset($back['line']) || $back['line'] = '00';
 				$result .= "<\033[31m$back[file]\033[00m:\033[01;30m$back[line]\033[00;00m> ".
 					"\033[34m$back[class]\033[00m$back[type]".
@@ -123,7 +127,11 @@ class Kizano_Misc
 							$type = gettype($args);
 							$result .= "(\033[32m$type\033[00m) $args";
 						} elseif (is_array($args)) {
-						    $args = print_r($args, true);
+							$args = preg_replace(
+							    array('/(\w+)\s+\(/', '/[\r\n]/'),
+							    array('\1 (', "\n"),
+							    print_r($args, true)
+						    );
 							$result .= "(\033[32marray\033[00m) $args";
 						} elseif (is_object($args)) {
 							$type = gettype($args);
@@ -161,7 +169,7 @@ class Kizano_Misc
 		$result = null;
 		if (count($backtrace))
 			foreach ($backtrace as $back) {
-				isset($back['class']) || $back['class'] = '(php)';
+				isset($back['class']) || $back['class'] = 'Static';
 				isset($back['type']) || $back['type'] = '::';
 				isset($back['file']) || $back['file'] = 'php://magic';
 				isset($back['line']) || $back['line'] = '00';
@@ -181,7 +189,11 @@ class Kizano_Misc
 							$result .= "(<span style='color:#00CC00;'>$type</span>) $args";
 						} elseif (is_array($args)) {
 							$type = gettype($args);
-							$args = print_r($args, true);
+							$args = preg_replace(
+							    array('/(\w+)\s+\(/', '/[\r\n]/'),
+							    array('\1 (', "\n"),
+							    print_r($args, true)
+						    );
 							$result .= "(<span style='color:#00CC00;'>$type</span>) $args";
 						} elseif (is_object($args)) {
 							$type = gettype($args);
@@ -213,6 +225,7 @@ class Kizano_Misc
 	public static function backtrace()
 	{
 		$debug = debug_backtrace();
+	    $args = array();
 		if (defined('STDOUT')) {
 		    $prefix = "\033[32m";
 		    $suffix = "\033[00m";
@@ -223,54 +236,74 @@ class Kizano_Misc
 		array_shift($debug);
 		foreach ($debug as $i => $deb) {
 			unset($debug[$i]['object']);
-			if (isset($debug['args']) && is_array($debug['args'])) {
-			    foreach ($debug['args'] as $k => $d) {
-				    is_object($d) && $debug[$i]['args'][$k] = "({$prefix}object{$suffix})".get_class($d);
-				    if (is_array($d)) {
-				        $debug[$i]['args'][$k] = "({$prefix}array{$prefix})\n[\n\t";
-				        foreach ($d as $key => $val) {
-        				    $args[] = sprintf("\t$key => ({$prefix}%s{$suffix}) %s", getType($val), is_string($val)? $val: null);
-				        }
-				        $debug[$i]['args'][$k] .= join(",\n", $args)."\n]";
-			        }
+			foreach ($deb['args'] as $k => $d) {
+				is_object($d) && $debug[$i]['args'][$k] = "({$prefix}object{$suffix})" . get_class($d);
+				if (is_array($d)) {
+				    $debug[$i]['args'][$k] = "({$prefix}array{$suffix})\n[\n\t";
+				    foreach ($d as $key => $val) {
+    				    $args[] = sprintf("\t$key => ({$prefix}%s{$suffix}) %s", getType($val), is_string($val)? $val: null);
+				    }
+				    $debug[$i]['args'][$k] .= join(",\n", $args)."\n]";
 			    }
-		    }
+			}
 		}
 		return $debug;
 	}
 
-	/**
-	 *  Generates an easily read var_dump of the provided exception.
-	 *
-	 *  @param Exception $e     The exception to print.
-	 *
-	 *  @return String
-	 */
-    public static function htmlException(Exception $e)
+    /**
+     *  Generates an easily read var_dump of the provided exception.
+     *
+     *  @param Exception $e     The exception to print.
+     *
+     *  @return String
+     */
+    public static function textException(Exception $e)
     {
         return sprintf(
-            "Type: %s<br />\n" .
-            "Message (<span style='color:#0000AA;'>%d</span>): <span style='font-weight:bold;'>%s</span><br />\n" .
-            "Location: &lt;<span style='color:#AA0000;'>%s</span>:%d&gt;<br />\n" .
-            "Trace: <br />\n%s<br />\n" .
-            "Previous: %s<br />\n",
+            "Type: %s\n" .
+            "Message (%d): %s\n" .
+            "Location: <%s:%d>;\n" .
+            "Trace: \n%s\n" .
+            "Previous: %s\n",
             get_class($e), $e->getCode(), $e->getMessage(), $e->getFile(), $e->getLine(),
-            self::htmlBacktrace($e->getTrace()),
-            is_null($e->getPrevious())? '&lt;N/A&gt;': self::htmlException($e->getPrevious())
+            self::textBacktrace($e->getTrace()),
+            is_null($e->getPrevious())? '<N/A>': self::textException($e->getPrevious())
         );
     }
 
-	/**
-	 * Generates an easily read var_dump of the provided exception in text format.
-	 *
-	 * @param Exception $e  The exception to format.
-	 *
-	 * @return String
-	 */
+    /**
+     *  Generates an easily read var_dump of the provided exception.
+     *
+     *  @param Exception $e     The exception to print.
+     *
+     *  @return String
+     */
+    public static function htmlException(Exception $e)
+    {
+        return str_replace(array("\r\n", "\r"), "\n", sprintf(
+            "<pre>\n" .
+            "Message (<span style='color:#0000AA;'>%d</span>): <span style='font-weight:bold;'>%s</span>\n" .
+            "Location: &lt;<span style='color:#AA0000;'>%s</span>:%d&gt;\n" .
+            "Trace: \n%s\n" .
+            "Previous: %s\n" .
+            "</pre>",
+            $e->getCode(), $e->getMessage(), $e->getFile(), $e->getLine(),
+            self::htmlBacktrace($e->getTrace()),
+            is_null($e->getPrevious())? '&lt;N/A&gt;': self::htmlException($e->getPrevious())
+        ));
+    }
+
+    /**
+     *  Generates an easily read var_dump of the provided exception.
+     *
+     *  @param Exception $e     The exception to print.
+     *
+     *  @return String
+     */
     public static function textException(Exception $e)
     {
         return str_replace(array("\r\n", "\r"), "\n", sprintf(
-            "Message (%d): %s\n" .
+            "Exception (%d): %s\n" .
             "Location: <%s:%d>\n" .
             "Trace: \n%s\n" .
             "Previous: %s\n",
@@ -288,8 +321,15 @@ class Kizano_Misc
     public static function varDump()
     {
         ob_start();
-        var_dump(func_get_args());
-        return preg_replace(array('#=>\s+(\w)#'), array('=> \1'), ob_get_clean());
+        $html_errors = ini_get('html_errors');
+        ini_set('html_errors', false);
+        array_map('var_dump', func_get_args());
+        ini_set('html_errors', $html_errors);
+        return preg_replace(
+            array('#=>\s+(\w)#'),
+            array('=> \1'),
+            /*html_entity_decode(strip_tags(*/ob_get_clean()#), ENT_QUOTES, 'utf-8')
+        );
     }
 }
 
