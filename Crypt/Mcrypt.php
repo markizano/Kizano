@@ -33,16 +33,16 @@ if (!extension_loaded('mcrypt')) {
  *  @license    http://framework.zend.com/license/new-bsd     New BSD License
  *  @author     Markizano Draconus <markizano@markizano.net>
  */
-class Kizano_Crypt_mCrypt
+class Kizano_Crypt_mCrypt extends Kizano_Crypt_Abstract
 {
-
-    public $Cipher = null;
-    public $IV = null;
-    public $Key = null;
-    public $PlainText = '';
-    public $CipherText = '';
-    public $CipherState = false;
-    private $_mCrypt = null;
+    const DELIMIT = '<!>';
+    public $cipher;
+    public $iv;
+    public $key;
+    public $plainText = '';
+    public $cipherText = '';
+    public $cipherState = false;
+    protected $_mCrypt;
 
     /**
      *  This is a list of ciphers that are available and valid for the current system. Be sure to update
@@ -53,22 +53,22 @@ class Kizano_Crypt_mCrypt
      *  @static
      */
     public static $validCiphers = array(
-          '1' => 'blowfish',
-          '2' => 'blowfish-compat',
-          '3' => 'cast-128',
-          '4' => 'cast-256',
-          '5' => 'des',
-          '7' => 'gost',
-          '8' => 'loki97',
-          'A' => 'rc2',
-          'B' => 'rijndael-128',
-          'C' => 'rijndael-192',
-          'D' => 'rijndael-256',
-          'E' => 'saferplus',
-          'F' => 'serpent',
-          '10' => 'tripledes',
-          '11' => 'twofish',
-          '12' => 'xtea',
+        '1' => 'blowfish',
+        '2' => 'blowfish-compat',
+        '3' => 'cast-128',
+        '4' => 'cast-256',
+        '5' => 'des',
+        '7' => 'gost',
+        '8' => 'loki97',
+        'A' => 'rc2',
+        'B' => 'rijndael-128',
+        'C' => 'rijndael-192',
+        'D' => 'rijndael-256',
+        'E' => 'saferplus',
+        'F' => 'serpent',
+        '10' => 'tripledes',
+        '11' => 'twofish',
+        '12' => 'xtea',
     );
 
     /**
@@ -77,7 +77,7 @@ class Kizano_Crypt_mCrypt
      *  @var Array
      *  @static
      */
-    public static $Ciphers = array (
+    public static $ciphers = array (
         'arcfour',
         'blowfish',
         'blowfish-compat',
@@ -102,59 +102,58 @@ class Kizano_Crypt_mCrypt
     /**
      * Sets up the mCrypt handler.
      * 
-     * @param string    $Cipher         The encryption cipher to use. One of self::$validCiphers.
-     * @param boolean   $CipherState    The current state of the encryption being passed into the object.
-     * @param string    $CipherMode     The mode we'll use to encrypt the data. ECB | CBC
-     * @param string    $Text           The data to enforce the encryption.
-     * @param string    $Key            The Key used for the encryption.
-     * @param string    $IV             The IV used in the encryption.
+     * @param string    $cipher         The encryption cipher to use. One of self::$validCiphers.
+     * @param boolean   $cipher_state    The current state of the encryption being passed into the object.
+     * @param string    $cipher_mode     The mode we'll use to encrypt the data. ECB | CBC
+     * @param string    $text           The data to enforce the encryption.
+     * @param string    $key            The Key used for the encryption.
+     * @param string    $iv             The IV used in the encryption.
      * 
      * @return void
      */
     public function __construct(
-        $Cipher = MCRYPT_DES,
-        $CipherState = false,
-        $CipherMode = MCRYPT_MODE_CBC,
-        $Text = null,
-        $Key = null,
-        $IV = null
+        $cipher = MCRYPT_DES,
+        $cipher_state = false,
+        $cipher_mode = MCRYPT_MODE_CBC,
+        $text = null,
+        $key = null,
+        $iv = null
     ) {
-        $this->CipherState = $CipherState;
-        $this->Cipher = $Cipher;
+        $this->cipherState = $cipher_state;
 
-        if (isset($Text) && !is_string($Text)) {
-            throw new InvalidArgumentException('Argument 4 ($Text) must be a string if given.');
+        if (isset($text) && !is_string($text)) {
+            throw new InvalidArgumentException('Argument 4 ($text) must be a string if given.');
         }
 
-        if ($CipherState) {
-            $this->CipherText = $Text;
+        if ($cipher_state) {
+            $this->cipherText = $text;
         } else {
-            $this->PlainText = $Text;
+            $this->plainText = $text;
         }
 
-        if (isset(self::$validCiphers[$Cipher])) {
-            $Cipher = self::$validCiphers[$Cipher];
+        if (isset(self::$validCiphers[$cipher])) {
+            $this->cipher = self::$validCiphers[$cipher];
         }
 
-        $this->_mCrypt = @mCrypt_module_open($Cipher, '', $CipherMode, '');
+        $this->_mCrypt = @mCrypt_module_open($this->cipher, '', $cipher_mode, '');
         if ($this->_mCrypt === false) {
-            throw new RuntimeException("Could not open the mCrypt module for `$Cipher'");
+            throw new RuntimeException("Could not open the mCrypt module for `$cipher'");
         }
 
-        if (empty($IV)) {
-            $size = mcrypt_get_iv_size($Cipher, MCRYPT_MODE_CBC);
+        if (empty($iv)) {
+            $size = mcrypt_get_iv_size($cipher, MCRYPT_MODE_CBC);
             # This is time expensive, only use if you really want a genuine key
-            #$this->IV = mcrypt_create_iv($size, MCRYPT_DEV_URANDOM);
-            $this->IV = strRandHex($size);        # i'm kewl w/ the hex
+            #$this->iv = mcrypt_create_iv($size, MCRYPT_DEV_URANDOM);
+            $this->iv = Kizano_Strings::strRandHex($size);        # i'm kewl w/ the hex
         } else {
-            $this->IV = $IV;
+            $this->iv = $iv;
         }
 
-        if (empty($Key)) {
-            $size = mcrypt_get_key_size($Cipher, MCRYPT_MODE_CBC);
-            $this->Key = strRandHex($size);
+        if (empty($key)) {
+            $size = mcrypt_get_key_size($cipher, MCRYPT_MODE_CBC);
+            $this->key = Kizano_Strings::strRandHex($size);
         } else {
-            $this->Key = $Key;
+            $this->key = $key;
         }
     }
 
@@ -175,7 +174,7 @@ class Kizano_Crypt_mCrypt
      */
     public function init()
     {
-        return mCrypt_generic_init($this->_mCrypt, $this->Key, $this->IV);
+        return mCrypt_generic_init($this->_mCrypt, $this->key, $this->iv);
     }
 
     /**
@@ -195,15 +194,15 @@ class Kizano_Crypt_mCrypt
      */
     public function Crypt($tCipherState = false)
     {
-        $this->CipherState = $tCipherState;
+        $this->cipherState = $tCipherState;
         if ($tCipherState) {
-            $this->CipherText = base64_encode(mCrypt_generic($this->_mCrypt, $this->PlainText));
-            $this->PlainText = null;
-            return $this->CipherText;
+            $this->cipherText = base64_encode(mCrypt_generic($this->_mCrypt, $this->plainText));
+            $this->plainText = null;
+            return $this->cipherText;
         } else {
-            $this->PlainText = mDecrypt_generic($this->_mCrypt, base64_decode($this->CipherText));
-            $this->CipherText = null;
-            return $this->PlainText;
+            $this->plainText = mDecrypt_generic($this->_mCrypt, base64_decode($this->cipherText));
+            $this->cipherText = null;
+            return $this->plainText;
         }
     }
 
@@ -214,7 +213,7 @@ class Kizano_Crypt_mCrypt
      */
     public function encrypt()
     {
-        return $this->Crypt(true);
+        return $this->crypt(true);
     }
 
     /**
@@ -224,7 +223,62 @@ class Kizano_Crypt_mCrypt
      */
     public function decrypt()
     {
-        return $this->Crypt(false);
+        return $this->crypt(false);
+    }
+
+    /**
+     * Sets instance-configurable options.
+     *
+     * @param String    $name   The option name to use.
+     *
+     * @return Kizano_Crypt_Abstract
+     * @throws InvalidArgumentException
+     */
+    public function setOptions($options)
+    {
+        $options instanceof Zend_Config && $options = $options->toArray();
+        if (!is_array($options)) {
+            throw new InvalidArgumentException('Argument 1 ($options) must be an array or Zend_Config');
+        }
+
+        // Return early if empty array passed.
+        if (empty($options)) {
+            return $this;
+        }
+
+        foreach ($options as $name => $option) {
+            switch (strToLower($name)) {
+                case 'plaintext':
+                    $this->plainText = $option;
+                    break;
+                case 'ciphertext':
+                    $this->cipherText = $option;
+                    break;
+                case 'key':
+                    $this->key = $option;
+                    break;
+                case 'iv':
+                    $this->iv = $option;
+                    break;
+                default:
+                    $this->_options[$nmae] = $value;
+            }
+        }
+    }
+
+    public function fromString($string)
+    {
+        if (!is_string($string)) {
+            throw new InvalidArgumentException('Argument 1 ($string) expected string.');
+        }
+
+        if (empty($string)) {
+            throw new InvalidArgumentException('Empty string passed.');
+        }
+
+        list($this->cipher, $this->key, $this->iv) = explode(self::DELIMIT, trim($string));
+        $this->iv = base64_decode($this->iv);
+        return $this;
     }
 
     /**
@@ -234,7 +288,7 @@ class Kizano_Crypt_mCrypt
      */
     public function __toString()
     {
-        return $this->Cipher . Delimit . $this->Key . Delimit . base64_encode($this->IV) . chr(10);
+        return $this->cipher . self::DELIMIT . $this->key . self::DELIMIT . base64_encode($this->iv) . chr(10);
     }
 }
 

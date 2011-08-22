@@ -31,6 +31,13 @@
 abstract class Kizano_Crypt_Abstract
 {
     /**
+     * Holds the options for this class.
+     *
+     * @var Array
+     */
+    protected $_options = array();
+
+    /**
      *  Handles encryption.
      *  
      *  @return String

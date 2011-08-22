@@ -313,6 +313,30 @@ class Kizano_Misc
         ));
     }
 
+	/**
+	 * Gathers all the data you could possibly want about a class.
+	 * 
+	 * @param String|Object   $class   The class to describe. Either the (string) name or the object itself.
+	 * 
+	 * @return Array
+	 */
+    public static function describeClass($class) {
+        $r = new ReflectionClass($class);
+        $props = $methods = $constants = array();
+        foreach ($r->getConstants() as $name => $value)
+            $constants[$name] = $value;
+        foreach ($r->getProperties() as $prop)
+            $props[$prop->class][] = $prop->name;
+        foreach ($r->getMethods() as $meth)
+            $methods[$meth->class][] = $meth->name;
+
+        return array(
+        	'constants' => $constants,
+            'props' => $props,
+            'methods' => $methods,
+        );
+    }
+
     /**
      *  Gets a more easily read var_dump() while `html_errors` is off by stripping excess whitespace.
      *  

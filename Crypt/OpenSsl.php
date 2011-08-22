@@ -278,3 +278,4 @@ class Kizano_Crypt_OpenSSL extends Kizano_Crypt_Abstract
         return $result;
     }
 }
+
