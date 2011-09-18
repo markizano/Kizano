@@ -293,26 +293,6 @@ class Kizano_Misc
         ));
     }
 
-    /**
-     *  Generates an easily read var_dump of the provided exception.
-     *
-     *  @param Exception $e     The exception to print.
-     *
-     *  @return String
-     */
-    public static function textException(Exception $e)
-    {
-        return str_replace(array("\r\n", "\r"), "\n", sprintf(
-            "Exception (%d): %s\n" .
-            "Location: <%s:%d>\n" .
-            "Trace: \n%s\n" .
-            "Previous: %s\n",
-            $e->getCode(), $e->getMessage(), $e->getFile(), $e->getLine(),
-            self::textBacktrace($e->getTrace()),
-            is_null($e->getPrevious())? '<N/A>': self::htmlException($e->getPrevious())
-        ));
-    }
-
 	/**
 	 * Gathers all the data you could possibly want about a class.
 	 * 
