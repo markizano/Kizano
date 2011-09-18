@@ -33,6 +33,13 @@
  */
 class Kizano_Misc
 {
+    /**
+     * Debugging variables and configurable option.
+     */
+    public static $registerDebug = true;
+    protected static $_debugRegistered = false;
+    protected static $_debug = array();
+
 	/**
 	 *	Gets a Console-printable string representation of the current backtrace.
 	 *	@return		String	A Console-printable backtrace
@@ -317,23 +324,46 @@ class Kizano_Misc
         );
     }
 
+
     /**
-     *  Gets a more easily read var_dump() while `html_errors` is off by stripping excess whitespace.
-     *  
-     *  @return String
+     * Gets a more easily read var_dump() while `html_errors` is off by stripping excess whitespace.
+     * Temporarily registers data to dump at the end of the application.
+     *
+     * @paramList Mixed $var    A variable to dump.
+     *
+     * @return String
      */
     public static function varDump()
     {
+        if (self::$registerDebug && !self::$_debugRegistered) {
+            register_shutdown_function(array(__CLASS__, 'dumpDebug'));
+            self::$_debugRegistered = true;
+        }
+
         ob_start();
         $html_errors = ini_get('html_errors');
         ini_set('html_errors', false);
-        array_map('var_dump', func_get_args());
+        $args = func_get_args();
+        self::$_debug[] = $args;
+        array_map('var_dump', $args);
         ini_set('html_errors', $html_errors);
         return preg_replace(
             array('#=>\s+(\w)#'),
             array('=> \1'),
             /*html_entity_decode(strip_tags(*/ob_get_clean()#), ENT_QUOTES, 'utf-8')
         );
+    }
+
+    /**
+     * Dumps the contents of that which has been debugged. This is mainly for knowing how many times
+     * {@link self::vardump} was called.
+     * 
+     * @return void
+     */
+    public static function dumpDebug()
+    {
+        $debug = self::$_debug;
+        print PHP_EOL . PHP_EOL . self::vardump($debug);
     }
 }
 
