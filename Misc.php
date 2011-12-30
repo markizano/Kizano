@@ -324,7 +324,6 @@ class Kizano_Misc
         );
     }
 
-
     /**
      * Gets a more easily read var_dump() while `html_errors` is off by stripping excess whitespace.
      * Temporarily registers data to dump at the end of the application.

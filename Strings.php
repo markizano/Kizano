@@ -582,6 +582,18 @@ class Kizano_Strings
     }
 
     /**
+     * Determines if the input value is a valid hex representation.
+     *
+     * @param String    $hex    The value to verify as hex.
+     *
+     * @return Boolean
+     */
+    public static function is_hex($hex)
+    {
+        return (bool) preg_match('/^[A-F0-9]*$/i', $hex);
+    }
+
+    /**
      * Gives us our standard hash of a password. Every single call to a hash would call this function
      * in some way.
      *  
