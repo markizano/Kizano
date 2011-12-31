@@ -364,5 +364,19 @@ class Kizano_Misc
         $debug = self::$_debug;
         print PHP_EOL . PHP_EOL . self::vardump($debug);
     }
+
+    /**
+     * Sort by keys recursively.
+     *
+     * @param Array  &$sort     The array to sort.
+     * @return Boolean
+     */
+    public static function rksort(array &$sort)
+    {
+        foreach ($sort as $name => &$val)
+            is_array($val) && self::rksort($val);
+
+        return ksort($sort);
+    }
 }
 
