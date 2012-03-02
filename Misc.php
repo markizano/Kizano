@@ -354,7 +354,6 @@ class Kizano_Misc
         );
     }
 
-
     /**
      * Gets a more easily read var_dump() while `html_errors` is off by stripping excess whitespace.
      * Temporarily registers data to dump at the end of the application.
@@ -394,6 +393,20 @@ class Kizano_Misc
     {
         $debug = self::$_debug;
         print PHP_EOL . PHP_EOL . self::var_dump($debug);
+    }
+
+    /**
+     * Sort by keys recursively.
+     *
+     * @param Array  &$sort     The array to sort.
+     * @return Boolean
+     */
+    public static function rksort(array &$sort)
+    {
+        foreach ($sort as $name => &$val)
+            is_array($val) && self::rksort($val);
+
+        return ksort($sort);
     }
 }
 

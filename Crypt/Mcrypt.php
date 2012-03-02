@@ -35,14 +35,15 @@ if (!extension_loaded('mcrypt')) {
  */
 class Kizano_Crypt_mCrypt extends Kizano_Crypt_Abstract
 {
-    const DELIMIT = '<!>';
+    public $cipher_state = false;
+    public $cipher_mode = MCRYPT_MODE_CBC;
     public $cipher;
     public $iv;
     public $key;
-    public $plainText = '';
-    public $cipherText = '';
-    public $cipherState = false;
+    public $text;
+
     protected $_mCrypt;
+    protected $_options = array();
 
     /**
      *  This is a list of ciphers that are available and valid for the current system. Be sure to update
@@ -52,7 +53,7 @@ class Kizano_Crypt_mCrypt extends Kizano_Crypt_Abstract
      *  @var Array
      *  @static
      */
-    public static $validCiphers = array(
+    public static $valid_ciphers = array(
         '1' => 'blowfish',
         '2' => 'blowfish-compat',
         '3' => 'cast-128',
@@ -102,58 +103,61 @@ class Kizano_Crypt_mCrypt extends Kizano_Crypt_Abstract
     /**
      * Sets up the mCrypt handler.
      * 
-     * @param string    $cipher         The encryption cipher to use. One of self::$validCiphers.
-     * @param boolean   $cipher_state    The current state of the encryption being passed into the object.
-     * @param string    $cipher_mode     The mode we'll use to encrypt the data. ECB | CBC
-     * @param string    $text           The data to enforce the encryption.
-     * @param string    $key            The Key used for the encryption.
-     * @param string    $iv             The IV used in the encryption.
+     * @param Array     $options        The list of options to startup this class.
+     * @member string   $cipher         The encryption cipher to use. One of self::$valid_ciphers.
+     * @member boolean  $cipher_state   The current state of the encryption being passed into the object.
+     * @member string   $cipher_mode    The mode we'll use to encrypt the data. ECB | CBC
+     * @member string   $text           The data to enforce the encryption.
+     * @member string   $key            The Key used for the encryption.
+     * @member string   $iv             The IV used in the encryption.
      * 
      * @return void
      */
-    public function __construct(
-        $cipher = MCRYPT_DES,
-        $cipher_state = false,
-        $cipher_mode = MCRYPT_MODE_CBC,
-        $text = null,
-        $key = null,
-        $iv = null
-    ) {
-        $this->cipherState = $cipher_state;
+    public function __construct($options)
+    {
+        $options instanceof Zend_Config && $options = $options->toArray();
+        
+        if (!empty($options) && !is_array($options)) {
+            throw new InvalidArgumentException('Argument 1 not a set of options. Expected array.');
+        }
 
-        if (isset($text) && !is_string($text)) {
+        // Setup some default options if they aren't already set.
+        isset($options['cipher'])       || $options['cipher'] = MCRYPT_DES;
+        isset($options['cipher_state']) || $options['cipher_state'] = false;
+        isset($options['cipher_mode'])  || $options['cipher_mode'] = MCRYPT_MODE_CBC;
+        isset($options['text'])         || $options['text'] = null;
+        isset($options['key'])          || $options['key'] = null;
+        isset($options['iv'])           || $options['iv'] = null;
+        $this->setOptions($options);
+
+        if (!empty($text) && !is_string($text)) {
             throw new InvalidArgumentException('Argument 4 ($text) must be a string if given.');
         }
 
-        if ($cipher_state) {
-            $this->cipherText = $text;
-        } else {
-            $this->plainText = $text;
-        }
-
-        if (isset(self::$validCiphers[$cipher])) {
-            $this->cipher = self::$validCiphers[$cipher];
-        }
-
-        $this->_mCrypt = @mCrypt_module_open($this->cipher, '', $cipher_mode, '');
+        $this->_mCrypt = @mCrypt_module_open($this->cipher, '', $this->cipher_mode, '');
         if ($this->_mCrypt === false) {
             throw new RuntimeException("Could not open the mCrypt module for `$cipher'");
         }
 
-        if (empty($iv)) {
-            $size = mcrypt_get_iv_size($cipher, MCRYPT_MODE_CBC);
-            # This is time expensive, only use if you really want a genuine key
-            #$this->iv = mcrypt_create_iv($size, MCRYPT_DEV_URANDOM);
-            $this->iv = Kizano_Strings::strRandHex($size);        # i'm kewl w/ the hex
+        if (empty($this->iv)) {
+            if (isset($this->_options['use_mcrypt_iv'])) {
+                # This is time expensive, only use if you really want a genuine key
+                $this->iv = mcrypt_create_iv(mcrypt_get_iv_size($this->cipher, $this->cipher_mode), MCRYPT_DEV_URANDOM);
+            } else {
+                $this->iv = Kizano_Strings::strRandHex(mcrypt_get_iv_size($this->cipher, MCRYPT_MODE_CBC));        # i'm kewl w/ the hex
+            }
         } else {
-            $this->iv = $iv;
+            if (strlen($this->iv) > ($size = mCrypt_get_iv_size($this->cipher, $this->cipher_mode))) {
+                $this->iv = substr($this->iv, 0, $size);
+            }
         }
 
-        if (empty($key)) {
-            $size = mcrypt_get_key_size($cipher, MCRYPT_MODE_CBC);
-            $this->key = Kizano_Strings::strRandHex($size);
+        if (empty($this->key)) {
+            $this->key = Kizano_Strings::strRandHex(mcrypt_get_key_size($this->cipher, MCRYPT_MODE_CBC));
         } else {
-            $this->key = $key;
+            if (strlen($this->key) > ($size = mCrypt_get_key_size($this->cipher, $this->cipher_mode))) {
+                $this->key = substr($this->key, 0, $size);
+            }
         }
     }
 
@@ -162,9 +166,125 @@ class Kizano_Crypt_mCrypt extends Kizano_Crypt_Abstract
      * 
      * @return void
      */
-    public function __destruct() {
-        if ($this->_mCrypt != null) mCrypt_module_close($this->_mCrypt);
-        $this->_mCrypt = null;
+    public function __destruct()
+    {
+        if (!empty($this->_mCrypt) && is_resource($this->_mCrypt)) {
+            mCrypt_module_close($this->_mCrypt);
+            unset($this->_mCrypt);
+        }
+
+        foreach (array('_mCrypt', 'cipher', 'cipher_mode', 'cipher_state', 'iv', 'key', 'text') as $p) {
+            unset($this->$p);
+        }
+    }
+
+    /**
+     * Closes the resource when the class goes to sleep.
+     *
+     * @return string
+     */
+    public function __sleep()
+    {
+        if (!empty($this->_mCrypt)) {
+            mCrypt_module_close($this->_mCrypt);
+            $this->_mCrypt = null;
+        }
+
+        return serialize(array(
+            'cipher',
+            'cipher_state',
+            'cipher_mode',
+            'key',
+            'iv',
+            'text',
+        ));
+    }
+    
+    /**
+     * Reopens the resources when the class is unserialized.
+     *
+     * @return Array
+     */
+    public function __wakeup()
+    {
+        $this->_mCrypt = @mCrypt_module_open($this->cipher, '', $this->cipher_mode, '');
+        if ($this->_mCrypt === false) {
+            throw new RuntimeException("Could not open the mCrypt module for `$cipher'");
+        }
+    }
+
+    /**
+     * Sets instance-configurable options.
+     *
+     * @param String    $name   The option name to set.
+     * @param Mixed     $value  The value of the option to assign.
+     *
+     * @return Kizano_Crypt_Abstract
+     * @throws InvalidArgumentException
+     */
+    public function setOption($option, $value = null)
+    {
+        if (!empty($option) && !is_string($option)) {
+            throw InvalidArgumentException('Argument 1 ($option) must be a string.');
+        }
+
+        switch (strToLower($option)) {
+            case 'cipher':
+                if (empty($value) || !is_string($value)) {
+                    throw new InvalidArgumentException('Option for `cipher\' not a string.');
+                }
+
+                $this->cipher = isset(self::$valid_ciphers[$value])? self::$valid_ciphers[$value]: $value;
+                break;
+            case 'cipher_state':
+                $this->cipher_state = (bool)$value;
+                break;
+            case 'cipher_mode':
+                $this->cipher_mode = $value;
+                break;
+            case 'text':
+                $this->text = $value;
+                break;
+            case 'key':
+                if (!empty($value) && !is_string($value)) {
+                    throw new InvalidArgumentException('Option for `key\' not a string.');
+                }
+
+                $this->key = $value;
+                break;
+            case 'iv':
+                if (!empty($value) && !is_string($value)) {
+                    throw new InvalidArgumentException('Option for `iv\' not a string.');
+                }
+
+                $this->iv = $value;
+                break;
+            default:
+                $this->_options[$option] = $value;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Sets options.
+     *
+     * @param Array|Zend_Config     $options    The options to set.
+     * 
+     * @return Kizano_Crypt_mCrypt
+     */
+    public function setOptions($options)
+    {
+        $options instanceof Zend_Config && $options = $options->toArray();
+        if (!is_array($options)) {
+            throw new InvalidArgumentException('Argument 1 ($options) must be an array or Zend_Config');
+        }
+
+        foreach ($options as $name => $option) {
+            $this->setOption($name, $option);
+        }
+
+        return $this;
     }
 
     /**
@@ -189,21 +309,27 @@ class Kizano_Crypt_mCrypt extends Kizano_Crypt_Abstract
 
     /**
      * Performs (de|en)cryption
-     * @param boolean $tCipherState The target cipher state.
+     * @param boolean $target_cipher_state The target cipher state.
      * @return string
      */
-    public function Crypt($tCipherState = false)
+    public function crypt($target_cipher_state)
     {
-        $this->cipherState = $tCipherState;
-        if ($tCipherState) {
-            $this->cipherText = base64_encode(mCrypt_generic($this->_mCrypt, $this->plainText));
-            $this->plainText = null;
-            return $this->cipherText;
-        } else {
-            $this->plainText = mDecrypt_generic($this->_mCrypt, base64_decode($this->cipherText));
-            $this->cipherText = null;
-            return $this->plainText;
+        // If our target cipher state is to be encrypted,
+        if ($target_cipher_state) {
+            // ... and we are not encrypted, perform the encryption.
+            if (!$this->cipher_state) {
+                $this->text = base64_encode(mCrypt_generic($this->_mCrypt, $this->text));
+            }
+        } else { // Otherwise, if we are targeting plaintext
+            // ... and we are encrypted, then perform the decryption.
+            if ($this->cipher_state) {
+                empty($this->text) || $this->text = rtrim(mDecrypt_generic($this->_mCrypt, base64_decode($this->text)), "\0");
+            }
         }
+        // Otherwise, if we are already in our requested state, then do not overperform the ciphers.
+
+        $this->cipher_state = (bool)$target_cipher_state;
+        return $this->text;
     }
 
     /**
@@ -227,46 +353,14 @@ class Kizano_Crypt_mCrypt extends Kizano_Crypt_Abstract
     }
 
     /**
-     * Sets instance-configurable options.
+     * Parses a string and attempts to populate this object. Does the reverse of {@function __toString}
      *
-     * @param String    $name   The option name to use.
-     *
-     * @return Kizano_Crypt_Abstract
+     * @param String    $string     The string to parse.
+     * 
+     * @return Kizano_Crypt_Mcrypt
      * @throws InvalidArgumentException
      */
-    public function setOptions($options)
-    {
-        $options instanceof Zend_Config && $options = $options->toArray();
-        if (!is_array($options)) {
-            throw new InvalidArgumentException('Argument 1 ($options) must be an array or Zend_Config');
-        }
-
-        // Return early if empty array passed.
-        if (empty($options)) {
-            return $this;
-        }
-
-        foreach ($options as $name => $option) {
-            switch (strToLower($name)) {
-                case 'plaintext':
-                    $this->plainText = $option;
-                    break;
-                case 'ciphertext':
-                    $this->cipherText = $option;
-                    break;
-                case 'key':
-                    $this->key = $option;
-                    break;
-                case 'iv':
-                    $this->iv = $option;
-                    break;
-                default:
-                    $this->_options[$nmae] = $value;
-            }
-        }
-    }
-
-    public function fromString($string)
+    public static function fromString($string)
     {
         if (!is_string($string)) {
             throw new InvalidArgumentException('Argument 1 ($string) expected string.');
@@ -276,9 +370,11 @@ class Kizano_Crypt_mCrypt extends Kizano_Crypt_Abstract
             throw new InvalidArgumentException('Empty string passed.');
         }
 
-        list($this->cipher, $this->key, $this->iv) = explode(self::DELIMIT, trim($string));
-        $this->iv = base64_decode($this->iv);
-        return $this;
+        $self = new self;
+        list($self->cipher, $self->cipher_state, $self->cipher_mode, $self->key, $self->iv, $self->text) = explode($self->DELIMIT, trim($string));
+        $self->cipher_state = (bool)$self->cipher_state;
+        $self->iv = base64_decode($self->iv);
+        return $self;
     }
 
     /**
@@ -288,7 +384,17 @@ class Kizano_Crypt_mCrypt extends Kizano_Crypt_Abstract
      */
     public function __toString()
     {
-        return $this->cipher . self::DELIMIT . $this->key . self::DELIMIT . base64_encode($this->iv) . chr(10);
+        return serialize($this);
+        /*
+        return join(self::DELIMIT, array(
+            $this->cipher,
+            $this->cipher_state? '1': '0',
+            $this->cipher_mode,
+            $this->key,
+            base64_encode($this->iv),
+            $this->text
+        ));
+        //*/
     }
 }
 
