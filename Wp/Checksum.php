@@ -19,6 +19,9 @@
  *
  */
 
+require_once 'Text/Diff.php';
+require_once 'Text/Diff/Renderer.php';
+
 /**
  * @TODO: Get rid of the file includes and store them in a PHP array we can use to dynamically adjust
  *          in a single file.
@@ -122,33 +125,14 @@ class Kizano_Wp_Checksum
    	public function traverse_directory($dir)
    	{
    	    $result = array();
-		if ( $handle = opendir($dir) ) {
-			while ( false !== ( $read = readdir( $handle ) ) ) {
-				if ( $read == '.' || $read == '..'|| preg_match('@\.(svn|git|bzr)|CVS@', $read) ) {
-				    fprintf(STDERR, "\033[31mSKIPPING\033[0m: $dir/$read\n");
-				    continue;
-			    }
+        $i = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir));
+        foreach ($i as $d) {
+            if (preg_match('@\.(git|svn|bzr)|CVS|\.$@', $d->getpathname())) continue;
+            $result[] = str_replace("$this->_wp_dir/", '', $d->getPathname());
+        }
 
-				$file = realpath("$dir/$read");
-				if ( $file === false || empty($file) ) {
-				    fprintf(STDERR, "\033[31mCould not realpath $dir/$read\033[0m\n");
-				    continue;
-			    }
-
-				if ( is_dir($file) ) {
-					$result += $this->traverse_directory($file);
-				} elseif ( is_file($file) ) {
-					$result[] = str_replace($this->_wp_dir . '/', '', $file);
-				} else {
-				    fprintf(STDERR, "\033[31mUnwaranted\033[0m: $file\n");
-				}
-			}
-
-			closedir($handle);
-		}
-
-		return $result;
-	}
+   	    return $result;
+   	}
 
     /**
      * 
@@ -157,9 +141,10 @@ class Kizano_Wp_Checksum
      */
     public function get_file_diff( $file )
     {
+printf("%s($file);", __METHOD__);
     	// core file names have a limited character set
     	$file = preg_replace( '#[^a-zA-Z0-9/_.-]#', '', $file );
-    	if ( empty( $file ) || ! is_file( $this->_wp_dir . $file ) )
+    	if ( empty( $file ) || ! is_file( "$this->_wp_dir/$file" ) )
     		return '<p>Sorry, an error occured. This file might not exist!</p>';
     
     	$key = $this->_version . '-' . $file;
@@ -169,11 +154,22 @@ class Kizano_Wp_Checksum
 			return '<p>Sorry, an error occured. Please try again later.</p>';
 		}
 
-    	$modified = file_get_contents($this->_wp_dir . $file);
-    
-    	$text_diff = new Text_Diff(explode("\n", $clean), explode("\n", $modified));
-    	$renderer = new USC_Text_Diff_Renderer;
+    	$text_diff = new Text_Diff(explode("\n", $response), file("$this->_wp_dir/$file", FILE_IGNORE_NEW_LINE));
+    	$renderer = new Text_Diff_Renderer;
     	return $renderer->render($text_diff);
+    }
+
+    public function generateHashlist($path)
+    {
+        $result = array();
+        foreach ($this->traverse_directory($path) as $resource) {
+            $result[$resource] = sha1_file("$this->_wp_dir/$resource");
+        }
+
+        ob_start();
+        var_export($result);
+        $result = ob_get_clean() . ";\n";
+        return $result;
     }
 
     /**
@@ -211,7 +207,7 @@ printf("Hashed: %d\nTraversed: %d\n", count($hashes), count($this->_wp_files));
         $result = array();
 		foreach( $this->_wp_files as $k => $file ) {
 			// don't scan unmodified core files
-		    $result[$file] = $hash = md5_file("$this->_wp_dir/$file");
+		    $result[$file] = $hash = sha1_file("$this->_wp_dir/$file");
 			if ( isset( $hashes[$file] ) ) {
 				if ( $hashes[$file] == $hash ) {
 					unset($this->wp_files[$k], $hashes[$file]);
@@ -244,3 +240,41 @@ printf("Hashed: %d\nTraversed: %d\n", count($hashes), count($this->_wp_files));
     }
 }
 
+/*
+if ( class_exists( 'Text_Diff_Renderer' ) ) :
+class USC_Text_Diff_Renderer extends Text_Diff_Renderer {
+	function USC_Text_Diff_Renderer() {
+		parent::Text_Diff_Renderer();
+	}
+
+	function _startBlock( $header ) {
+		return "<span class=\"textdiff-line\">Lines: $header</span>\n";
+	}
+
+	function _lines( $lines, $prefix, $class ) {
+		$r = '';
+		foreach ( $lines as $line ) {
+			$line = esc_html( $line );
+			$r .= "<div class='{$class}'>{$prefix} {$line}</div>\n";
+		}
+		return $r;
+	}
+
+	function _added( $lines ) {
+		return $this->_lines( $lines, '+', 'diff-addedline' );
+	}
+
+	function _deleted( $lines ) {
+		return $this->_lines( $lines, '-', 'diff-deletedline' );
+	}
+
+	function _context( $lines ) {
+		return $this->_lines( $lines, '', 'diff-context' );
+	}
+
+	function _changed( $orig, $final ) {
+		return $this->_deleted( $orig ) . $this->_added( $final );
+	}
+}
+endif;
+//*/
