@@ -37,6 +37,7 @@ class Kizano_Wp_Checksum
     protected $_lang = '';          // The localization code, if any.
     protected $_diff = array();     // The array of info containing the diffs.
     protected $_quiet = false;      // TRUE to render just file-list. FALSE to list full differences.
+    protected $_hash = 'sha1';      // The hash algo we use to determine the validity of the files.
 
     /**
      *
@@ -45,6 +46,7 @@ class Kizano_Wp_Checksum
      */
     public function __construct(array $options)
     {
+        isset($options['hash']) || $options['hash'] = 'sha1';
         $this->setOptions($options);
     }
 
@@ -91,6 +93,14 @@ class Kizano_Wp_Checksum
 
                 $this->_lang = $value;
                 break;
+            case 'hash':
+                $hashes = array('md5', 'sha1');
+                if ( empty($value) || !is_string($value) || !in_array($value, $hashes) ) {
+                    throw new RuntimeException('Hash type must be valid.');
+                }
+
+                $this->_hash = "${value}_file";
+                break;
             case 'quiet':
                 $this->_quiet = (bool)$value;
                 break;
@@ -110,6 +120,8 @@ class Kizano_Wp_Checksum
                 return $this->_lang;
             case 'diff':
                 return $this->_diff;
+            case 'hash':
+                return $this->_hash;
             case 'quiet':
                 return $this->_quiet;
             default:
@@ -179,7 +191,7 @@ printf("%s($file);", __METHOD__);
      */
     public function checkAll()
     {
-        $hashes = $localizations = $diffs = $old_export = array();
+        $hashes = $localizations = $diffs = array();
 
         $hashfile = dirname(__FILE__) . '/hashes/hashes-'. $this->_version .'.php';
         $localfile = dirname(__FILE__) . '/hashes/hashes-'. $this->_version .'_international.php';
@@ -207,7 +219,7 @@ printf("Hashed: %d\nTraversed: %d\n", count($hashes), count($this->_wp_files));
         $result = array();
 		foreach( $this->_wp_files as $k => $file ) {
 			// don't scan unmodified core files
-		    $result[$file] = $hash = sha1_file("$this->_wp_dir/$file");
+		    $result[$file] = $hash = "$this->_hash"("$this->_wp_dir/$file");
 			if ( isset( $hashes[$file] ) ) {
 				if ( $hashes[$file] == $hash ) {
 					unset($this->wp_files[$k], $hashes[$file]);
@@ -216,21 +228,14 @@ printf("Hashed: %d\nTraversed: %d\n", count($hashes), count($this->_wp_files));
 			        $diffs[$file][] = $this->_quiet? "$this->_wp_dir/$file": $this->get_file_diff($file);
 				}
 			}
-
-			// detect old export files
-			if ( substr( $file, -9 ) == '.xml_.txt' ) {
-		         $old_export[] = $file;
-			}
 		}
 
         sort($diffs);
-        sort($old_export);
         sort($this->_wp_files);
         ksort($hashes);
 
         $this->_diff = array(
             'diffs' => $diffs,
-            'old_export' => $old_export,
             'additional' => array_unique(array_values($this->_wp_files)), // Using array_values, we can strip out keys that aren't sequenced.
             'missing' => array_unique(array_keys($hashes)),
             'new' => $result,
