@@ -46,7 +46,7 @@ class Kizano_Wp_Checksum
      */
     public function __construct(array $options)
     {
-        isset($options['hash']) || $options['hash'] = 'sha1';
+        (isset($options['hash']) && !empty($options['hash'])) || $options['hash'] = 'sha1';
         $this->setOptions($options);
     }
 
@@ -94,8 +94,7 @@ class Kizano_Wp_Checksum
                 $this->_lang = $value;
                 break;
             case 'hash':
-                $hashes = array('md5', 'sha1');
-                if ( empty($value) || !is_string($value) || !in_array($value, $hashes) ) {
+                if ( empty($value) || !is_string($value) || !in_array($value, array('md5', 'sha1')) ) {
                     throw new RuntimeException('Hash type must be valid.');
                 }
 
@@ -153,7 +152,6 @@ class Kizano_Wp_Checksum
      */
     public function get_file_diff( $file )
     {
-printf("%s($file);", __METHOD__);
     	// core file names have a limited character set
     	$file = preg_replace( '#[^a-zA-Z0-9/_.-]#', '', $file );
     	if ( empty( $file ) || ! is_file( "$this->_wp_dir/$file" ) )
@@ -166,9 +164,11 @@ printf("%s($file);", __METHOD__);
 			return '<p>Sorry, an error occured. Please try again later.</p>';
 		}
 
-    	$text_diff = new Text_Diff(explode("\n", $response), file("$this->_wp_dir/$file", FILE_IGNORE_NEW_LINE));
-    	$renderer = new Text_Diff_Renderer;
-    	return $renderer->render($text_diff);
+    	$text_diff = new Text_Diff(explode("\n", $response), file("$this->_wp_dir/$file", FILE_IGNORE_NEW_LINES));
+    	$renderer = new USC_Text_Diff_Renderer;
+    	$result = $renderer->render($text_diff);
+printf("%s($file) {\n%s\n}\n", __METHOD__, $result);
+    	return $result;
     }
 
     public function generateHashlist($path)
@@ -192,6 +192,7 @@ printf("%s($file);", __METHOD__);
     public function checkAll()
     {
         $hashes = $localizations = $diffs = array();
+        $hashfunc =& $this->_hash; // Assign by ref because some things just don't work like you'd expect...
 
         $hashfile = dirname(__FILE__) . '/hashes/hashes-'. $this->_version .'.php';
         $localfile = dirname(__FILE__) . '/hashes/hashes-'. $this->_version .'_international.php';
@@ -219,12 +220,13 @@ printf("Hashed: %d\nTraversed: %d\n", count($hashes), count($this->_wp_files));
         $result = array();
 		foreach( $this->_wp_files as $k => $file ) {
 			// don't scan unmodified core files
-		    $result[$file] = $hash = "$this->_hash"("$this->_wp_dir/$file");
+		    $result[$file] = $hash = $hashfunc("$this->_wp_dir/$file");
 			if ( isset( $hashes[$file] ) ) {
-				if ( $hashes[$file] == $hash ) {
+				if ( strcmp($hashes[$file], $hash) === 0 ) {
 					unset($this->wp_files[$k], $hashes[$file]);
 					continue;
 				} else {
+				    print "$hashes[$file]==$hash\n";
 			        $diffs[$file][] = $this->_quiet? "$this->_wp_dir/$file": $this->get_file_diff($file);
 				}
 			}
@@ -245,7 +247,7 @@ printf("Hashed: %d\nTraversed: %d\n", count($hashes), count($this->_wp_files));
     }
 }
 
-/*
+//*
 if ( class_exists( 'Text_Diff_Renderer' ) ) :
 class USC_Text_Diff_Renderer extends Text_Diff_Renderer {
 	function USC_Text_Diff_Renderer() {
@@ -253,14 +255,19 @@ class USC_Text_Diff_Renderer extends Text_Diff_Renderer {
 	}
 
 	function _startBlock( $header ) {
-		return "<span class=\"textdiff-line\">Lines: $header</span>\n";
+		return ini_get('html_errors') ? "<span class=\"textdiff-line\">Lines: $header</span>\n"
+		    : "Lines: $header\n";
 	}
 
-	function _lines( $lines, $prefix, $class ) {
+	function _lines( $lines, $prefix = ' ', $class = null ) {
 		$r = '';
 		foreach ( $lines as $line ) {
-			$line = esc_html( $line );
-			$r .= "<div class='{$class}'>{$prefix} {$line}</div>\n";
+			if (ini_get('html_errors')) {
+			    $line = htmlEntities($line, ENT_QUOTES, 'utf-8');
+    			$r .= "<div class='{$class}'>{$prefix} {$line}</div>\n";
+			} else {
+			    $r .= "$prefix $line\n";
+			}
 		}
 		return $r;
 	}
