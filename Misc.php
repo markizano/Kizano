@@ -41,6 +41,8 @@ class Kizano_Misc
     protected static $_debugRegistered = false;
     protected static $_debug = array();
 
+	protected static $_globals = array();
+
 	/**
 	 *	Gets a Console-printable string representation of the current backtrace.
 	 *	@return		String	A Console-printable backtrace
@@ -408,5 +410,39 @@ class Kizano_Misc
 
         return ksort($sort);
     }
+
+	public static function snapshot()
+	{
+		return self::$_globals = array_merge(
+			compact('_GET', '_POST', '_REQUEST', '_COOKIE', '_SERVER', '_ENV'),
+			array(
+				'_CONST' => get_defined_constants(),
+				'_VARS' => get_defined_vars(),
+				'_FUNC' => get_defined_functions(),
+				'_EXT' => get_loaded_extensions(),
+			)
+		);
+	}
+
+	/**
+	 * Returns the delta stream in the system since this class was parsed. Records and returns what 
+	 *
+	 * @return array
+	 */
+	public static function diff_system()
+	{
+		return array_diff(self::$_globals,
+			array_merge(compact('_GET', '_POST', '_REQUEST', '_COOKIE', '_SERVER', '_ENV'),
+				array(
+					'_CONST' => get_defined_constants(),
+					'_VARS' => get_defined_vars(),
+					'_FUNC' => get_defined_functions(),
+					'_EXT' => get_loaded_extensions(),
+				)
+			)
+		);
+	}
 }
+
+Kizano_Misc::snapshot();
 
