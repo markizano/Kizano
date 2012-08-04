@@ -27,6 +27,7 @@
  * @link      https://github.com/markizano/Kizano/blob/master/Misc.php
  */
 
+error_reporting(E_ALL | E_STRICT);
 /**
  *	Namespace for miscelaneous functions that would normally be free-floating.
  *  @author Markizano Draconus <markizano at markizano dot net>
@@ -39,6 +40,8 @@ class Kizano_Misc
     public static $registerDebug = false;
     protected static $_debugRegistered = false;
     protected static $_debug = array();
+
+	protected static $_globals = array();
 
 	/**
 	 *	Gets a Console-printable string representation of the current backtrace.
@@ -73,8 +76,8 @@ class Kizano_Misc
 							$result .= "($type) $args";
 						} elseif (is_array($args)) {
 							$args = preg_replace(
-							    array('/(\w+)\s+\(/', '/[\r\n]/'),
-							    array('\1 (', "\n"),
+							    array("/\r\n?/", '/(\w+)\s+\(/'),
+							    array("\n", '\1 ('),
 							    print_r($args, true)
 						    );
 							$result .= "(array) $args";
@@ -135,8 +138,8 @@ class Kizano_Misc
 							$result .= "(\033[32m$type\033[00m) $args";
 						} elseif (is_array($args)) {
 							$args = preg_replace(
-							    array('/(\w+)\s+\(/', '/[\r\n]/'),
-							    array('\1 (', "\n"),
+							    array("/\r\n?/", '/(\w+)\s+\(/'),
+							    array("\n", '\1 ('),
 							    print_r($args, true)
 						    );
 							$result .= "(\033[32marray\033[00m) $args";
@@ -197,8 +200,8 @@ class Kizano_Misc
 						} elseif (is_array($args)) {
 							$type = gettype($args);
 							$args = preg_replace(
-							    array('/(\w+)\s+\(/', '/[\r\n]/'),
-							    array('\1 (', "\n"),
+							    array("/\r\n?/", '/(\w+)\s+\(/'),
+							    array("\n", '\1 ('),
 							    print_r($args, true)
 						    );
 							$result .= "(<span style='color:#00CC00;'>$type</span>) $args";
@@ -220,9 +223,10 @@ class Kizano_Misc
 							$result .= "(<span style='color:#00CC00;'>$type</span>) [object]";
 						}
 					}
-				$result .= ");<br />\n";
+				$result .= ");\n";
 			}
-		return $result;
+
+		return "<pre>$result</pre><br />\n";
 	}
 
 	/**
@@ -241,6 +245,14 @@ class Kizano_Misc
 		    $suffix = "</span>";
 		}
 		array_shift($debug);
+		array_push($debug, array(
+			'file' => $_SERVER['SCRIPT_FILENAME'],
+			'line' => '0',
+			'class' => 'main',
+			'function' => 'main',
+			'args' => array(),
+			
+		));
 		foreach ($debug as $i => $deb) {
 			unset($debug[$i]['object']);
 			foreach ($deb['args'] as $k => $d) {
@@ -276,6 +288,26 @@ class Kizano_Misc
             self::textBacktrace($e->getTrace()),
             is_null($e->getPrevious())? '<N/A>': self::textException($e->getPrevious())
         );
+    }
+
+    /**
+     *  Generates an easily read var_dump of the provided exception.
+     *
+     *  @param Exception $e     The exception to print.
+     *
+     *  @return String
+     */
+    public static function consoleException(Exception $e)
+    {
+        return str_replace(array("\r\n", "\r"), "\n", sprintf(
+            "Message (\033[01;34m%d\033[0m): \033[01m%s\033[0m\n" .
+            "Location: <\033[31m%s\033[0m:%d>\n" .
+            "Trace: \n%s\n" .
+            "Previous: %s\n",
+            $e->getCode(), $e->getMessage(), $e->getFile(), $e->getLine(),
+            self::consoleBacktrace($e->getTrace()),
+            is_null($e->getPrevious())? '<N/A>': self::consoleException($e->getPrevious())
+        ));
     }
 
     /**
@@ -349,7 +381,7 @@ class Kizano_Misc
         return preg_replace(
             array('#=>\s+(\w)#'),
             array('=> \1'),
-            /*html_entity_decode(strip_tags(*/ob_get_clean()#), ENT_QUOTES, 'utf-8')
+            ob_get_clean()
         );
     }
 
@@ -362,7 +394,55 @@ class Kizano_Misc
     public static function dumpDebug()
     {
         $debug = self::$_debug;
-        print PHP_EOL . PHP_EOL . self::vardump($debug);
+        print PHP_EOL . PHP_EOL . self::var_dump($debug);
     }
+
+    /**
+     * Sort by keys recursively.
+     *
+     * @param Array  &$sort     The array to sort.
+     * @return Boolean
+     */
+    public static function rksort(array &$sort)
+    {
+        foreach ($sort as $name => &$val)
+            is_array($val) && self::rksort($val);
+
+        return ksort($sort);
+    }
+
+	public static function snapshot()
+	{
+		return self::$_globals = array_merge(
+			compact('_GET', '_POST', '_REQUEST', '_COOKIE', '_SERVER', '_ENV'),
+			array(
+				'_CONST' => get_defined_constants(),
+				'_VARS' => get_defined_vars(),
+				'_FUNC' => get_defined_functions(),
+				'_EXT' => get_loaded_extensions(),
+			)
+		);
+	}
+
+	/**
+	 * Returns the delta stream in the system since this class was parsed. Records and returns what 
+	 *
+	 * @return array
+	 */
+	public static function diff_system()
+	{
+		return array_diff(self::$_globals,
+			array_merge(compact('_GET', '_POST', '_REQUEST', '_COOKIE', '_SERVER', '_ENV'),
+				array(
+					'_CONST' => get_defined_constants(),
+					'_VARS' => get_defined_vars(),
+					'_FUNC' => get_defined_functions(),
+					'_EXT' => get_loaded_extensions(),
+				)
+			)
+		);
+	}
 }
+
+Kizano_Misc::snapshot();
 
