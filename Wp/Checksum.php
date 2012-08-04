@@ -94,6 +94,71 @@ class Kizano_Wp_Checksum
         }
     }
 
+   	public function traverse_directory($dir)
+   	{
+   	    $result = array();
+		if ( $handle = opendir($dir) ) {
+
+			while ( false !== ( $file = readdir( $handle ) ) ) {
+				if ( $file != '.' && $file != '..' ) {
+
+					$file = realpath($dir . '/' . $file);
+					if ($file === false) continue;
+
+					if ( is_dir($file) ) {
+						$result += $this->traverse_directory($file);
+					} elseif ( is_file($file) ) {
+						$result[] = str_replace($this->_wp_dir . '/', '', $file);
+					}
+				}
+			}
+
+			closedir($handle);
+		}
+
+		return $result;
+	}
+
+    public function get_file_diff( $file ) {
+    	global $wp_version;
+    	// core file names have a limited character set
+    	$file = preg_replace( '#[^a-zA-Z0-9/_.-]#', '', $file );
+    	if ( empty( $file ) || ! is_file( ABSPATH . $file ) )
+    		return '<p>Sorry, an error occured. This file might not exist!</p>';
+    
+    	$key = $wp_version . '-' . $file;
+    	$cache = get_option( 'source_files_cache' );
+    	if ( ! $cache || ! is_array($cache) || ! isset($cache[$key]) ) {
+    		$url = "http://core.svn.wordpress.org/tags/$wp_version/$file";
+    		$response = wp_remote_get( $url );
+    		if ( is_wp_error( $response ) || 200 != $response['response']['code'] )
+    			return '<p>Sorry, an error occured. Please try again later.</p>';
+    
+    		$clean = $response['body'];
+    
+    		if ( is_array($cache) ) {
+    			if ( count($cache) > 4 ) array_shift( $cache );
+    			$cache[$key] = $clean;
+    		} else {
+    			$cache = array( $key => $clean );
+    		}
+    		update_option( 'source_files_cache', $cache );
+    	} else {
+    		$clean = $cache[$key];
+    	}
+    
+    	$modified = file_get_contents( ABSPATH . $file );
+    
+    	$text_diff = new Text_Diff( explode( "\n", $clean ), explode( "\n", $modified ) );
+    	$renderer = new USC_Text_Diff_Renderer();
+    	$diff = $renderer->render( $text_diff );
+        
+    	$r  = "<div class=\"danger-found\">\n";
+    	$r .= "\n$diff\n\n";
+    	$r .= "</div>";
+    	return $r;
+    }
+
     /**
      *
      *
@@ -134,26 +199,18 @@ class Kizano_Wp_Checksum
             );
         }
 
-		foreach( $this->traverse_directory($this->_wp_dir) as $k => $file ) {
+        $this->_wp_files = $this->traverse_directory($this->_wp_dir);
+
+		foreach($this->_wp_files as $k => $file ) {
 
 			// don't scan unmodified core files
 			if ( isset( $hashes[$file] ) ) {
-				if ( $hashes[$file] == md5_file( ABSPATH.$file ) ) {
-					unset( $this->wp_files[$k] );
+				if ( $hashes[$file] == md5_file("$this->_wp_dir/$file") ) {
+					unset($this->wp_files[$k], $hashes[$file]);
 					continue;
 				} else {
 			        $diffs[$file][] = $this->get_file_diff($file);
 				}
-			}
-
-            //for avoiding false alerts in 25 test
-            if ($file == "wp-content/plugins/ultimate-security-checker/securitycheck.class.php" || $file == "wp-content/plugins/ultimate-security-checker/wp-ultimate-security.php") {
-                unset( $this->wp_files[$k] );
-            }
-
-			// don't scan files larger than 400 KB
-			if ( filesize(ABSPATH . $file) > (400 * 1024) ) {
-				unset( $this->wp_files[$k] );
 			}
 
 			// detect old export files
@@ -162,40 +219,12 @@ class Kizano_Wp_Checksum
 			}
 		}
 
-        if (!isset($diffs) && !isset($old_export)) {
-        		return True;
-       	} else {
-        	    $this->changed_core_files = array(
-                'diffs' => $diffs,
-                'old_export' => $old_export
-                );
-        		return False;
-        }
+        $this->_diff['diffs'] = $diffs;
+        $this->_diff['old_export'] = $old_export;
+        $this->_diff['additional'] = $this->_wp_files,
+        $this->_diff['missing'] = $hashes;
+        
+        return empty($diffs) && empty($old_export); # && empty($this->_wp_files) && empty($hashes);
     }
-
-   	public function traverse_directory($dir)
-   	{
-   	    $result = array();
-		if ( $handle = opendir($dir) ) {
-
-			while ( false !== ( $file = readdir( $handle ) ) ) {
-				if ( $file != '.' && $file != '..' ) {
-
-					$file = realpath($dir . '/' . $file);
-					if ($file === false) continue;
-
-					if ( is_dir($file) ) {
-						$result += $this->traverse_directory($file);
-					} elseif ( is_file($file) ) {
-						$result[] = str_replace($this->_wp_dir . '/', '', $file);
-					}
-				}
-			}
-
-			closedir($handle);
-		}
-
-		return $result;
-	}
 }
 

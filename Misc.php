@@ -36,7 +36,7 @@ class Kizano_Misc
     /**
      * Debugging variables and configurable option.
      */
-    public static $registerDebug = true;
+    public static $registerDebug = false;
     protected static $_debugRegistered = false;
     protected static $_debug = array();
 
@@ -332,7 +332,7 @@ class Kizano_Misc
      *
      * @return String
      */
-    public static function varDump()
+    public static function var_dump()
     {
         if (self::$registerDebug && !self::$_debugRegistered) {
             register_shutdown_function(array(__CLASS__, 'dumpDebug'));
