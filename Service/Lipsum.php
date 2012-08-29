@@ -63,11 +63,14 @@ class Kizano_Service_Lipsum
     public static function getLipsum($amount, $what, $start = false)
     {
         $url = sprintf(self::FEED_URL, $amount, $what, (bool)$start? 'yes': 'no');
-        $client = new Zend_Http_Client($url);
+#        $client = new Zend_Http_Client($url);
         $xml = new DomDocument(1.0, 'utf-8');
-        $xml->loadXML($client->request()->getBody());
+#        $xml->loadXML($client->request()->getBody());
+        $xml->loadXML( file_get_contents($url) );
         $lipsum = $xml->getElementsByTagName('feed')->item(0)->getElementsByTagName('lipsum')->item(0)->nodeValue;
         return $lipsum;
     }
+
+	public static function lipsum($a, $w, $s) { return self::getLipsum($a, $w, $s); }
 }
 
