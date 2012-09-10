@@ -24,6 +24,8 @@ if (!extension_loaded('mcrypt')) {
         'before attempting to use this component.');
 }
 
+class_exists('Kizano_Crypt_Abstract') || require 'Kizano/Crypt/Abstract.php';
+
 /**
  *  Class wrapper for handling the mCrypt module.
  *
