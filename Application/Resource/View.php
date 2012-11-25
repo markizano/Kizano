@@ -45,6 +45,11 @@ class Kizano_Application_Resource_View extends Zend_Application_Resource_Resourc
     public function init()
     {
         $view = $this->getView();
+
+        $viewRenderer = new Zend_Controller_Action_Helper_ViewRenderer();
+        $viewRenderer->setView($view);
+        Zend_Controller_Action_HelperBroker::addHelper($viewRenderer);
+
         return $view;
     }
 
@@ -56,9 +61,8 @@ class Kizano_Application_Resource_View extends Zend_Application_Resource_Resourc
     public function getView()
     {
         if (null === $this->_view) {
-            $this->_bootstrap->bootstrap('layout');
             $options = $this->getOptions();
-            $this->_view = $this->_bootstrap->getResource('layout')->getView();
+            $this->_view = new Zend_View($options);
 
             if (isset($options['doctype'])) {
                 $this->_view->doctype()->setDoctype(strtoupper($options['doctype']));
