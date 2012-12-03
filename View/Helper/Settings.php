@@ -49,7 +49,7 @@ class Kizano_View_Helper_Settings extends Zend_View_Helper_Abstract
      */
     public function replace($content)
     {
-        foreach (Zend_Registry::get('settings')->getArrayCopy() as $key => $value) {
+        foreach (Zend_Registry::get('settings') as $key => $value) {
             $content = str_replace('{' . $key . '}', $value, $content);
         }
 
