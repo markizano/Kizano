@@ -33,21 +33,27 @@ class Kizano_Controller_Action extends Zend_Controller_Action
 {
     /**
      *  Quick-access for the current session in place.
-     *  
+     *
      *  @var Zend_Session_Namespace
      */
     protected $_session;
 
     /**
      *  Quick-access to the cache manager.
-     *  
+     *
      *  @var Zend_Cache_Core
      */
     protected $_cache;
 
     /**
+     *  Holds an instance of the root logger.
+     *  @var Zend_Log
+     */
+    protected $_log;
+
+    /**
      *  Constructs this instance of a controller.
-     *  
+     *
      *  @return void
      */
     public function init()
@@ -55,11 +61,17 @@ class Kizano_Controller_Action extends Zend_Controller_Action
         if (Zend_Registry::isRegistered('session')) {
             $this->_session = Zend_Registry::get('session');
         }
+
         if (Zend_Registry::isRegistered('cachemanager')) {
             $this->_cache   = Zend_Registry::get('cachemanager');
         }
+
         if ($this->_request->isXmlHttpRequest()) {
             $this->_reply = Kizano_Ajax_Reply::factory();
+        }
+
+        if (Zend_Registry::isRegistered('log')) {
+            $this->_log = Zend_Registry::get('log');
         }
     }
 
@@ -78,4 +90,3 @@ class Kizano_Controller_Action extends Zend_Controller_Action
         }
     }
 }
-
