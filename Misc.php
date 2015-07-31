@@ -5,7 +5,7 @@
  * PHP version 5
  *
  * Namespace placeholder for functions that would normally be free-floating.
- *  @copyright  Copyright (c) 2011 W3Evolutions <http://www.w3evolutions.com>
+ *  @copyright  Copyright (c) 2015 Markizano Draconus <http://markizano.net/>
  *
  * This class is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
